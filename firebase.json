@@ -1,0 +1,29 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "petwalk-14a2a",
+          "appId": "1:125120646156:android:03a2256bee74ec6fa4f229",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "petwalk-14a2a",
+          "configurations": {
+            "android": "1:125120646156:android:03a2256bee74ec6fa4f229",
+            "ios": "1:125120646156:ios:701388562a1ec660a4f229",
+            "macos": "1:125120646156:ios:701388562a1ec660a4f229",
+            "web": "1:125120646156:web:5ebd4c22a0e569b6a4f229",
+            "windows": "1:125120646156:web:69c8456ec554162ea4f229"
+          }
+        }
+      }
+    }
+  }
+}
