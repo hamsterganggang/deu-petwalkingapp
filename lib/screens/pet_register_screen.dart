@@ -202,8 +202,11 @@ class _PetRegisterScreenState extends State<PetRegisterScreen> {
             const SnackBar(content: Text('사진을 업로드하는 중...')),
           );
         }
-        final petId = widget.pet?.petId ?? 'pet_${DateTime.now().millisecondsSinceEpoch}';
-        finalPhotoUrl = await _storageService.uploadPetPhoto(petId, _selectedImage!);
+        // 사진 업로드용 임시 ID (등록 시에는 나중에 실제 ID로 교체됨)
+        final tempPetId = widget.pet?.petId.isNotEmpty == true 
+            ? widget.pet!.petId 
+            : 'temp_${DateTime.now().millisecondsSinceEpoch}';
+        finalPhotoUrl = await _storageService.uploadPetPhoto(tempPetId, _selectedImage!);
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -218,8 +221,23 @@ class _PetRegisterScreenState extends State<PetRegisterScreen> {
       }
     }
 
+    // 수정 시 petId가 필수
+    if (widget.pet != null && widget.pet!.petId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('펫 ID가 유효하지 않습니다.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 등록 시에는 빈 문자열을 전달하여 Firestore가 자동으로 ID 생성하도록 함
     final pet = PetModel(
-      petId: widget.pet?.petId ?? 'pet_${DateTime.now().millisecondsSinceEpoch}',
+      petId: widget.pet?.petId ?? '',
       ownerId: authProvider.user!.uid,
       name: _nameController.text,
       breed: _breedController.text.isEmpty ? null : _breedController.text,

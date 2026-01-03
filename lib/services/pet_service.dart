@@ -26,9 +26,10 @@ class FirebasePetService implements PetService {
       final pets = snapshot.docs
           .map((doc) {
             final data = doc.data();
+            // document ID를 petId로 사용 (데이터의 petId 필드는 무시)
             return PetModel.fromJson({
-              'petId': doc.id,
               ...Map<String, dynamic>.from(data),
+              'petId': doc.id, // document ID를 우선 사용
             });
           })
           .toList();
@@ -46,8 +47,21 @@ class FirebasePetService implements PetService {
   Future<PetModel> createPet(PetModel pet) async {
     try {
       ErrorLogger.logSuccess('펫 등록 시작: ${pet.name}');
-      final docRef = await _firestore.collection('pets').add(pet.toJson());
-      final createdPet = pet.copyWith(petId: docRef.id);
+      
+      // petId가 비어있거나 임시 ID인 경우 새로운 ID 생성
+      String finalPetId = pet.petId;
+      if (finalPetId.isEmpty || finalPetId.startsWith('pet_')) {
+        // Firestore가 자동 생성한 ID 사용
+        final docRef = await _firestore.collection('pets').add(pet.toJson());
+        finalPetId = docRef.id;
+      } else {
+        // petId를 document ID로 직접 사용
+        final petData = pet.toJson();
+        petData.remove('petId'); // petId는 document ID이므로 JSON에서 제거
+        await _firestore.collection('pets').doc(finalPetId).set(petData);
+      }
+      
+      final createdPet = pet.copyWith(petId: finalPetId);
       ErrorLogger.logSuccess('펫 등록 완료: ${createdPet.petId}');
       return createdPet;
     } catch (e, stackTrace) {
@@ -61,7 +75,20 @@ class FirebasePetService implements PetService {
   Future<PetModel> updatePet(PetModel pet) async {
     try {
       ErrorLogger.logSuccess('펫 수정 시작: ${pet.petId}');
-      await _firestore.collection('pets').doc(pet.petId).update(pet.toJson());
+      
+      // 문서 존재 여부 확인
+      final docRef = _firestore.collection('pets').doc(pet.petId);
+      final docSnapshot = await docRef.get();
+      
+      if (!docSnapshot.exists) {
+        throw Exception('펫을 찾을 수 없습니다: ${pet.petId}');
+      }
+      
+      // petId는 document ID이므로 JSON에서 제거
+      final petData = pet.toJson();
+      petData.remove('petId');
+      
+      await docRef.update(petData);
       ErrorLogger.logSuccess('펫 수정 완료: ${pet.petId}');
       return pet;
     } catch (e, stackTrace) {
@@ -75,7 +102,24 @@ class FirebasePetService implements PetService {
   Future<void> deletePet(String petId) async {
     try {
       ErrorLogger.logSuccess('펫 삭제 시작: $petId');
-      await _firestore.collection('pets').doc(petId).delete();
+      
+      // 문서 존재 여부 확인
+      final docRef = _firestore.collection('pets').doc(petId);
+      final docSnapshot = await docRef.get();
+      
+      if (!docSnapshot.exists) {
+        throw Exception('펫을 찾을 수 없습니다: $petId');
+      }
+      
+      // 삭제 실행
+      await docRef.delete();
+      
+      // 삭제 확인 (문서가 실제로 삭제되었는지 확인)
+      final verifySnapshot = await docRef.get();
+      if (verifySnapshot.exists) {
+        throw Exception('펫 삭제에 실패했습니다. 문서가 여전히 존재합니다.');
+      }
+      
       ErrorLogger.logSuccess('펫 삭제 완료: $petId');
     } catch (e, stackTrace) {
       ErrorLogger.logFirebaseError('펫 삭제', e);
@@ -92,6 +136,11 @@ class FirebasePetService implements PetService {
           .collection('pets')
           .where('ownerId', isEqualTo: ownerId)
           .get();
+
+      // 빈 리스트 체크
+      if (snapshot.docs.isEmpty) {
+        throw Exception('펫 목록이 비어있습니다.');
+      }
 
       // petId와 일치하는 문서 찾기
       final targetDoc = snapshot.docs.firstWhere(

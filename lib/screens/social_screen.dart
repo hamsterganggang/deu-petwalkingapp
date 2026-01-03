@@ -5,6 +5,8 @@ import '../providers/walk_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/social_provider.dart';
 import '../models/walk_model.dart';
+import '../models/user_model.dart';
+import '../services/user_service.dart';
 import 'user_search_screen.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -131,41 +133,52 @@ class _SocialScreenState extends State<SocialScreen> {
 
   /// Build Walk Card (Instagram-style)
   Widget _buildWalkCard(WalkModel walk) {
-    return Card(
-      elevation: AppTheme.cardElevation,
-      shadowColor: AppTheme.cardShadowColor,
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header (User Info)
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppTheme.secondaryMint,
-                  child: Icon(
-                    Icons.person,
-                    color: AppTheme.primaryGreen,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '반려인',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
+    return FutureBuilder<UserModel?>(
+      future: _getUserInfo(walk.userId),
+      builder: (context, snapshot) {
+        final user = snapshot.data;
+        final displayName = user?.nickname ?? '반려인';
+        
+        return Card(
+          elevation: AppTheme.cardElevation,
+          shadowColor: AppTheme.cardShadowColor,
+          margin: const EdgeInsets.only(bottom: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header (User Info)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: AppTheme.secondaryMint,
+                      backgroundImage: user?.photoUrl != null
+                          ? NetworkImage(user!.photoUrl!)
+                          : null,
+                      child: user?.photoUrl == null
+                          ? Icon(
+                              Icons.person,
+                              color: AppTheme.primaryGreen,
+                              size: 20,
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
                       Text(
                         _formatDate(walk.date),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -351,9 +364,20 @@ class _SocialScreenState extends State<SocialScreen> {
               ],
             ),
           ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  Future<UserModel?> _getUserInfo(String userId) async {
+    try {
+      final userService = FirebaseUserService();
+      return await userService.getUserInfo(userId);
+    } catch (e) {
+      return null;
+    }
   }
 
   String _formatDate(DateTime date) {

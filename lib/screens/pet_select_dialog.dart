@@ -51,9 +51,31 @@ class PetSelectDialog extends StatelessWidget {
                   return _buildPetItem(context, pet);
                 }).toList(),
                 const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, null),
-                  child: const Text('선택 안함'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, null),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.textBody,
+                          side: const BorderSide(color: AppTheme.textBody, width: 1),
+                        ),
+                        child: const Text('선택 안함'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red, width: 1),
+                        ),
+                        child: const Text('취소'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

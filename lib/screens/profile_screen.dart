@@ -45,6 +45,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _nicknameController.text = authProvider.user?.nickname ?? '';
       _introController.text = authProvider.user?.intro ?? '';
       walkProvider.loadWalks(authProvider.user!.uid);
+      // 사용자 정보 새로고침 (팔로워/팔로잉 수 동기화)
+      authProvider.loadUserInfo();
     }
   }
 
@@ -135,6 +137,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('프로필이 저장되었습니다.')),
+      );
+    } else if (mounted && authProvider.error != null) {
+      // 에러 메시지 표시 (닉네임 변경 제한 등)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.error!),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
       );
     }
   }
@@ -411,8 +422,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         GestureDetector(
-                          onTap: () {
-                            Navigator.push(
+                          onTap: () async {
+                            // 팔로워 목록 화면으로 이동
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => FollowListScreen(
@@ -421,6 +433,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
                             );
+                            // 돌아왔을 때 사용자 정보 새로고침
+                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                            await authProvider.loadUserInfo();
+                            setState(() {});
                           },
                           child: Column(
                             children: [
@@ -446,8 +462,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           color: AppTheme.secondaryMint,
                         ),
                         GestureDetector(
-                          onTap: () {
-                            Navigator.push(
+                          onTap: () async {
+                            // 팔로잉 목록 화면으로 이동
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => FollowListScreen(
@@ -456,6 +473,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
                             );
+                            // 돌아왔을 때 사용자 정보 새로고침
+                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                            await authProvider.loadUserInfo();
+                            setState(() {});
                           },
                           child: Column(
                             children: [

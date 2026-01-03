@@ -11,6 +11,7 @@ class UserModel {
   final double? latitude; // 현재 위치
   final double? longitude; // 현재 위치
   final DateTime? lastLocationUpdate; // 마지막 위치 업데이트 시간
+  final DateTime? lastNicknameChange; // 마지막 닉네임 변경 시간
 
   UserModel({
     required this.uid,
@@ -24,6 +25,7 @@ class UserModel {
     this.latitude,
     this.longitude,
     this.lastLocationUpdate,
+    this.lastNicknameChange,
   });
 
   /// Convert to JSON
@@ -40,6 +42,7 @@ class UserModel {
       'latitude': latitude,
       'longitude': longitude,
       'lastLocationUpdate': lastLocationUpdate?.toIso8601String(),
+      'lastNicknameChange': lastNicknameChange?.toIso8601String(),
     };
   }
 
@@ -59,6 +62,9 @@ class UserModel {
       lastLocationUpdate: json['lastLocationUpdate'] != null
           ? DateTime.parse(json['lastLocationUpdate'])
           : null,
+      lastNicknameChange: json['lastNicknameChange'] != null
+          ? DateTime.parse(json['lastNicknameChange'])
+          : null,
     );
   }
 
@@ -75,6 +81,7 @@ class UserModel {
     double? latitude,
     double? longitude,
     DateTime? lastLocationUpdate,
+    DateTime? lastNicknameChange,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -88,6 +95,7 @@ class UserModel {
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       lastLocationUpdate: lastLocationUpdate ?? this.lastLocationUpdate,
+      lastNicknameChange: lastNicknameChange ?? this.lastNicknameChange,
     );
   }
 }

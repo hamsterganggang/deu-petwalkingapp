@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text(
                             primaryPet != null
-                                ? '${primaryPet.name}와 함께'
+                                ? 'With ${primaryPet.name}'
                                 : '반려동물을 등록해주세요',
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   color: AppTheme.textTitle,
