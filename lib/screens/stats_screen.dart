@@ -248,9 +248,8 @@ class _StatsScreenState extends State<StatsScreen> {
             barTouchData: BarTouchData(
               enabled: true,
               touchTooltipData: BarTouchTooltipData(
-                tooltipRoundedRadius: 8,
                 tooltipPadding: const EdgeInsets.all(8),
-                tooltipBgColor: AppTheme.primaryGreen,
+                getTooltipColor: (group) => AppTheme.primaryGreen,
               ),
             ),
             titlesData: FlTitlesData(
@@ -367,9 +366,8 @@ class _StatsScreenState extends State<StatsScreen> {
             barTouchData: BarTouchData(
               enabled: true,
               touchTooltipData: BarTouchTooltipData(
-                tooltipRoundedRadius: 8,
                 tooltipPadding: const EdgeInsets.all(8),
-                tooltipBgColor: AppTheme.primaryGreen,
+                getTooltipColor: (group) => AppTheme.primaryGreen,
               ),
             ),
             titlesData: FlTitlesData(
