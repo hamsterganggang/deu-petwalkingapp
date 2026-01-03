@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
@@ -169,21 +170,49 @@ class AuthProvider with ChangeNotifier {
       _error = null;
       notifyListeners();
 
+      // Firebase Auth 회원가입 시도
       final authUser = await _authService.signUpWithEmail(email, password);
-      if (authUser != null) {
-        final userService = _userService;
-        // 회원가입 시 닉네임이 제공된 경우 유저 정보 생성
-        if (nickname != null && nickname.isNotEmpty && userService != null) {
-          // 닉네임 중복 체크
+      
+      if (authUser == null) {
+        _error = '회원가입에 실패했습니다.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Firebase Auth 회원가입 성공 후 Firestore에 사용자 정보 생성
+      final userService = _userService;
+      if (userService == null) {
+        _error = '서비스 초기화에 실패했습니다.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // 회원가입 시 닉네임이 제공된 경우 유저 정보 생성
+      if (nickname != null && nickname.isNotEmpty) {
+        // 닉네임 중복 체크
+        try {
           final isAvailable = await userService.isNicknameAvailable(nickname);
           if (!isAvailable) {
+            // 닉네임이 중복된 경우 Firebase Auth 사용자 삭제 시도
+            try {
+              await _authService.signOut();
+            } catch (e) {
+              ErrorLogger.logError('signUp - 사용자 삭제 실패', e, StackTrace.current);
+            }
             _error = '이미 사용 중인 닉네임입니다.';
             _isLoading = false;
             notifyListeners();
             return false;
           }
-          
-          // 유저 정보 생성 (닉네임 포함)
+        } catch (e) {
+          // 닉네임 중복 체크 실패 시에도 계속 진행 (네트워크 문제일 수 있음)
+          ErrorLogger.logError('signUp - 닉네임 중복 체크 실패', e, StackTrace.current);
+        }
+        
+        // 유저 정보 생성 (닉네임 포함)
+        try {
           final newUser = UserModel(
             uid: authUser.id,
             email: authUser.email,
@@ -191,22 +220,67 @@ class AuthProvider with ChangeNotifier {
             photoUrl: authUser.photoUrl,
           );
           _user = await userService.createUserInfo(newUser);
-        } else {
-          // 닉네임이 없는 경우 기본 유저 정보 생성
+        } catch (e) {
+          // Firestore 사용자 정보 생성 실패 시에도 Firebase Auth는 성공했으므로 계속 진행
+          ErrorLogger.logError('signUp - Firestore 사용자 정보 생성 실패', e, StackTrace.current);
+          // 임시 사용자 정보 설정
+          _user = UserModel(
+            uid: authUser.id,
+            email: authUser.email,
+            nickname: nickname,
+            photoUrl: authUser.photoUrl,
+          );
+        }
+      } else {
+        // 닉네임이 없는 경우 기본 유저 정보 생성
+        try {
+          final newUser = UserModel(
+            uid: authUser.id,
+            email: authUser.email,
+            nickname: authUser.displayName,
+            photoUrl: authUser.photoUrl,
+          );
+          _user = await userService.createUserInfo(newUser);
+        } catch (e) {
+          // Firestore 사용자 정보 생성 실패 시에도 Firebase Auth는 성공했으므로 계속 진행
+          ErrorLogger.logError('signUp - Firestore 사용자 정보 생성 실패', e, StackTrace.current);
+          // 임시 사용자 정보 설정
           _user = UserModel(
             uid: authUser.id,
             email: authUser.email,
             nickname: authUser.displayName,
             photoUrl: authUser.photoUrl,
           );
-          // 회원가입 후 유저 정보 로드
-          await loadUserInfo();
         }
       }
 
       _isLoading = false;
       notifyListeners();
       return _user != null;
+    } on FirebaseAuthException catch (e, stackTrace) {
+      ErrorLogger.logError('signUp FirebaseAuthException', e, stackTrace);
+      
+      // Firebase Auth 에러 메시지 처리
+      String errorMessage = '회원가입에 실패했습니다.';
+      switch (e.code) {
+        case 'email-already-in-use':
+          errorMessage = '이미 사용 중인 이메일입니다. 로그인을 시도해주세요.';
+          break;
+        case 'weak-password':
+          errorMessage = '비밀번호가 너무 약합니다. (최소 6자 이상)';
+          break;
+        case 'invalid-email':
+          errorMessage = '이메일 형식이 올바르지 않습니다.';
+          break;
+        default:
+          errorMessage = e.message ?? '회원가입에 실패했습니다: ${e.code}';
+      }
+      
+      _error = errorMessage;
+      _isLoading = false;
+      _user = null;
+      notifyListeners();
+      return false;
     } catch (e, stackTrace) {
       ErrorLogger.logError('signUp', e, stackTrace);
       

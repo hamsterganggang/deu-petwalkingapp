@@ -122,18 +122,18 @@ class FirebaseAuthService implements AuthService {
   @override
   Future<app_models.User?> signUpWithEmail(
       String email, String password) async {
+    // 이메일 정리 및 기본 검증
+    final trimmedEmail = email.trim().toLowerCase(); // 소문자로 통일
+    if (trimmedEmail.isEmpty) {
+      throw Exception('이메일을 입력해주세요.');
+    }
+    
+    // 이메일 형식 기본 검증
+    if (!trimmedEmail.contains('@') || !trimmedEmail.contains('.')) {
+      throw Exception('올바른 이메일 형식이 아닙니다.');
+    }
+    
     try {
-      // 이메일 정리 및 기본 검증
-      final trimmedEmail = email.trim();
-      if (trimmedEmail.isEmpty) {
-        throw Exception('이메일을 입력해주세요.');
-      }
-      
-      // 이메일 형식 기본 검증 (Firebase Auth가 최종 검증하지만, 미리 체크)
-      if (!trimmedEmail.contains('@') || !trimmedEmail.contains('.')) {
-        throw Exception('올바른 이메일 형식이 아닙니다.');
-      }
-      
       // Firebase Auth 호출
       final credential = await _auth.createUserWithEmailAndPassword(
         email: trimmedEmail,
@@ -154,13 +154,16 @@ class FirebaseAuthService implements AuthService {
       return user;
     } on FirebaseAuthException catch (e) {
       ErrorLogger.logFirebaseError('회원가입', e);
+      ErrorLogger.logError('signUpWithEmail FirebaseAuthException', e, StackTrace.current);
+      
       String errorMessage = '회원가입에 실패했습니다.';
       switch (e.code) {
         case 'weak-password':
           errorMessage = '비밀번호가 너무 약합니다. (최소 6자 이상)';
           break;
         case 'email-already-in-use':
-          errorMessage = '이미 사용 중인 이메일입니다.';
+          // 이메일이 이미 사용 중인 경우, 로그인을 시도하도록 안내
+          errorMessage = '이미 사용 중인 이메일입니다. 로그인을 시도해주세요.';
           break;
         case 'invalid-email':
           errorMessage = '이메일 형식이 올바르지 않습니다.';
@@ -174,6 +177,8 @@ class FirebaseAuthService implements AuthService {
         default:
           // Firebase Auth의 실제 에러 메시지 사용
           errorMessage = e.message ?? '회원가입에 실패했습니다: ${e.code}';
+          // 디버깅을 위한 상세 로그
+          debugPrint('회원가입 실패 - Code: ${e.code}, Message: ${e.message}');
       }
       throw Exception(errorMessage);
     } catch (e, stackTrace) {
@@ -185,6 +190,10 @@ class FirebaseAuthService implements AuthService {
       if (errorMessage.startsWith('Exception: ')) {
         errorMessage = errorMessage.substring(11);
       }
+      
+      // 디버깅을 위한 상세 로그
+      debugPrint('회원가입 일반 에러: $errorMessage');
+      debugPrint('Stack trace: $stackTrace');
       
       throw Exception(errorMessage);
     }
