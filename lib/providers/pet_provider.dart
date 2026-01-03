@@ -98,8 +98,9 @@ class PetProvider with ChangeNotifier {
       final createdPet = await _petService.createPet(pet);
       _pets.add(createdPet);
 
-      // 첫 번째 펫이면 자동으로 대표 펫으로 설정
-      if (_pets.length == 1) {
+      // 첫 번째 펫이고 isPrimary가 false일 때만 자동으로 대표 펫으로 설정
+      // (사용자가 명시적으로 대표로 설정한 경우는 화면에서 처리)
+      if (_pets.length == 1 && !pet.isPrimary) {
         await setPrimaryPet(createdPet.petId, createdPet.ownerId);
       }
 

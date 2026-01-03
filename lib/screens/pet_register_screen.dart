@@ -250,16 +250,34 @@ class _PetRegisterScreenState extends State<PetRegisterScreen> {
     );
 
     try {
+      // 펫 등록/수정 (isPrimary는 false로 저장, 나중에 setPrimaryPet에서 처리)
+      final petWithoutPrimary = pet.copyWith(isPrimary: false);
       final success = widget.pet != null
-          ? await petProvider.updatePet(pet)
-          : await petProvider.createPet(pet);
+          ? await petProvider.updatePet(petWithoutPrimary)
+          : await petProvider.createPet(petWithoutPrimary);
 
       if (!mounted) return;
       
       if (success) {
+        // 대표 반려동물 설정이 켜져 있으면 대표로 설정
+        // setPrimaryPet가 기존 대표 반려동물을 자동으로 해제함
         if (_isPrimary) {
-          await petProvider.setPrimaryPet(pet.petId, pet.ownerId);
+          // 등록 시에는 생성된 펫의 실제 petId를 가져와야 함
+          if (widget.pet == null) {
+            // 펫 목록을 다시 로드하여 생성된 펫의 petId 확인
+            await petProvider.loadPets(authProvider.user!.uid);
+            // 가장 최근에 추가된 펫 (이름과 ownerId로 매칭)
+            final createdPet = petProvider.pets.firstWhere(
+              (p) => p.name == pet.name && p.ownerId == pet.ownerId,
+              orElse: () => petProvider.pets.last, // 매칭 실패 시 마지막 펫 사용
+            );
+            await petProvider.setPrimaryPet(createdPet.petId, createdPet.ownerId);
+          } else {
+            // 수정 시에는 기존 petId 사용
+            await petProvider.setPrimaryPet(pet.petId, pet.ownerId);
+          }
         }
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
