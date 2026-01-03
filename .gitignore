@@ -33,6 +33,11 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# FVM (Flutter Version Management)
+.fvm/flutter_sdk
+.fvm/.flutter-version
+.fvm/versions
+
 # Symbolication related
 app.*.symbols
 
