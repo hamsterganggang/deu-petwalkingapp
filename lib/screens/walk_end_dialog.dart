@@ -42,13 +42,17 @@ class _WalkEndDialogState extends State<WalkEndDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
       ),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Text(
                 '산책 완료!',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -185,7 +189,8 @@ class _WalkEndDialogState extends State<WalkEndDialog> {
                   ),
                 ],
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

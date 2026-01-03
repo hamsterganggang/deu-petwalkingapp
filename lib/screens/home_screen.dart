@@ -293,11 +293,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 20),
         GridView.count(
-          crossAxisCount: 4,
+          crossAxisCount: 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 16,
           crossAxisSpacing: 16,
+          childAspectRatio: 1.5,
           children: [
             _buildQuickAccessItem(
               icon: Icons.directions_walk,
@@ -363,20 +364,21 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircleAvatar(
-            radius: 30,
+            radius: 35,
             backgroundColor: AppTheme.secondaryMint,
             child: Icon(
               icon,
               color: AppTheme.primaryGreen,
-              size: 28,
+              size: 32,
             ),
           ),
           const SizedBox(height: 12),
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppTheme.textBody,
-                  fontSize: 11,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                 ),
             textAlign: TextAlign.center,
             maxLines: 2,
