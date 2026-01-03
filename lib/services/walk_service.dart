@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/walk_model.dart';
-import '../utils/confirm_dialog.dart';
+import '../utils/confirm_dialog.dart'; // ErrorLogger를 위해 필요
 
 /// Walk Service Interface
 abstract class WalkService {
