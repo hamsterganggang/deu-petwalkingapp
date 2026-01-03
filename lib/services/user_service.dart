@@ -52,7 +52,7 @@ class FirebaseUserService implements UserService {
           final daysSinceLastChange = now.difference(lastChange).inDays;
           if (daysSinceLastChange < 30) {
             final remainingDays = 30 - daysSinceLastChange;
-            throw Exception('닉네임은 30일에 한 번만 변경할 수 있습니다. (${remainingDays}일 후 변경 가능)');
+            throw Exception('닉네임은 30일에 한 번만 변경할 수 있습니다. ($remainingDays일 후 변경 가능)');
           }
         }
         

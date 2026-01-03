@@ -5,6 +5,7 @@ import '../utils/confirm_dialog.dart';
 import '../providers/social_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_model.dart';
+import 'user_profile_screen.dart';
 
 /// User Search Screen
 class UserSearchScreen extends StatefulWidget {
@@ -196,6 +197,14 @@ class _UserSearchScreenState extends State<UserSearchScreen> {
             ),
           ],
         ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => UserProfileScreen(userId: user.uid),
+            ),
+          );
+        },
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

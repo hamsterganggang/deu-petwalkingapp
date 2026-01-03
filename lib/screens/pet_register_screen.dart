@@ -422,31 +422,56 @@ class _PetRegisterScreenState extends State<PetRegisterScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Radio<String>(
-                      value: 'male',
-                      groupValue: _gender,
-                      onChanged: (value) {
+                    child: OutlinedButton(
+                      onPressed: () {
                         setState(() {
-                          _gender = value;
+                          _gender = 'male';
                         });
                       },
-                      activeColor: AppTheme.primaryGreen,
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: _gender == 'male'
+                            ? AppTheme.secondaryMint
+                            : Colors.transparent,
+                        foregroundColor: _gender == 'male'
+                            ? AppTheme.primaryGreen
+                            : AppTheme.textBody,
+                        side: BorderSide(
+                          color: _gender == 'male'
+                              ? AppTheme.primaryGreen
+                              : Colors.grey.shade300,
+                          width: _gender == 'male' ? 2 : 1,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('수컷'),
                     ),
                   ),
-                  const Text('수컷'),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Radio<String>(
-                      value: 'female',
-                      groupValue: _gender,
-                      onChanged: (value) {
+                    child: OutlinedButton(
+                      onPressed: () {
                         setState(() {
-                          _gender = value;
+                          _gender = 'female';
                         });
                       },
-                      activeColor: AppTheme.primaryGreen,
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: _gender == 'female'
+                            ? AppTheme.secondaryMint
+                            : Colors.transparent,
+                        foregroundColor: _gender == 'female'
+                            ? AppTheme.primaryGreen
+                            : AppTheme.textBody,
+                        side: BorderSide(
+                          color: _gender == 'female'
+                              ? AppTheme.primaryGreen
+                              : Colors.grey.shade300,
+                          width: _gender == 'female' ? 2 : 1,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('암컷'),
                     ),
                   ),
-                  const Text('암컷'),
                 ],
               ),
               const SizedBox(height: 16),
@@ -482,6 +507,95 @@ class _PetRegisterScreenState extends State<PetRegisterScreen> {
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(color: Colors.grey.shade300),
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              // Neutered (중성화 여부)
+              Text(
+                '중성화 여부',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _isNeutered = true;
+                        });
+                      },
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: _isNeutered == true
+                            ? AppTheme.secondaryMint
+                            : Colors.transparent,
+                        foregroundColor: _isNeutered == true
+                            ? AppTheme.primaryGreen
+                            : AppTheme.textBody,
+                        side: BorderSide(
+                          color: _isNeutered == true
+                              ? AppTheme.primaryGreen
+                              : Colors.grey.shade300,
+                          width: _isNeutered == true ? 2 : 1,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('완료'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _isNeutered = false;
+                        });
+                      },
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: _isNeutered == false
+                            ? AppTheme.secondaryMint
+                            : Colors.transparent,
+                        foregroundColor: _isNeutered == false
+                            ? AppTheme.primaryGreen
+                            : AppTheme.textBody,
+                        side: BorderSide(
+                          color: _isNeutered == false
+                              ? AppTheme.primaryGreen
+                              : Colors.grey.shade300,
+                          width: _isNeutered == false ? 2 : 1,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('미완료'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _isNeutered = null;
+                        });
+                      },
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: _isNeutered == null
+                            ? AppTheme.secondaryMint
+                            : Colors.transparent,
+                        foregroundColor: _isNeutered == null
+                            ? AppTheme.primaryGreen
+                            : AppTheme.textBody,
+                        side: BorderSide(
+                          color: _isNeutered == null
+                              ? AppTheme.primaryGreen
+                              : Colors.grey.shade300,
+                          width: _isNeutered == null ? 2 : 1,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('선택 안 함'),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 

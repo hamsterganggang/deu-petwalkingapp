@@ -121,10 +121,8 @@ class WalkDetailScreen extends StatelessWidget {
                     icon: Icons.straighten,
                     label: '거리',
                     value: walk.distance != null
-                        ? (walk.distance! >= 1.0
-                            ? '${walk.distance!.toStringAsFixed(2)} km'
-                            : '${(walk.distance! * 1000).toStringAsFixed(0)} m')
-                        : '0 m',
+                        ? '${walk.distance!.toStringAsFixed(2)} km'
+                        : '0.00 km',
                     context: context,
                   ),
                 ),
@@ -144,49 +142,140 @@ class WalkDetailScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // 지도 (경로가 있는 경우)
-            if (walk.routePoints.isNotEmpty)
-              Card(
-                elevation: AppTheme.cardElevation,
-                shadowColor: AppTheme.cardShadowColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                  child: SizedBox(
-                    height: 300,
-                    child: FlutterMap(
-                      options: MapOptions(
-                        initialCenter: LatLng(
-                          walk.routePoints.first.latitude,
-                          walk.routePoints.first.longitude,
-                        ),
-                        initialZoom: 15.0,
-                        minZoom: 10.0,
-                        maxZoom: 19.0,
-                      ),
+            // 이동 경로 (지도 좌표)
+            Card(
+              elevation: AppTheme.cardElevation,
+              shadowColor: AppTheme.cardShadowColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
                       children: [
-                        TileLayer(
-                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.deupetwalk.app',
+                        Icon(Icons.route, color: AppTheme.primaryGreen),
+                        const SizedBox(width: 8),
+                        Text(
+                          '이동 경로',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
-                        PolylineLayer(
-                          polylines: [
-                            Polyline(
-                              points: walk.routePoints
-                                  .map((point) => LatLng(point.latitude, point.longitude))
-                                  .toList(),
-                              strokeWidth: 5.0,
-                              color: AppTheme.primaryGreen,
-                            ),
-                          ],
+                        const Spacer(),
+                        Text(
+                          '${walk.routePoints.length}개 좌표',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppTheme.textBody,
+                              ),
                         ),
                       ],
                     ),
                   ),
-                ),
+                  if (walk.routePoints.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(AppTheme.cardRadius),
+                        bottomRight: Radius.circular(AppTheme.cardRadius),
+                      ),
+                      child: SizedBox(
+                        height: 300,
+                        child: FlutterMap(
+                          options: MapOptions(
+                            initialCenter: LatLng(
+                              walk.routePoints.first.latitude,
+                              walk.routePoints.first.longitude,
+                            ),
+                            initialZoom: 15.0,
+                            minZoom: 10.0,
+                            maxZoom: 19.0,
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.deupetwalk.app',
+                            ),
+                            PolylineLayer(
+                              polylines: [
+                                Polyline(
+                                  points: walk.routePoints
+                                      .map((point) => LatLng(point.latitude, point.longitude))
+                                      .toList(),
+                                  strokeWidth: 5.0,
+                                  color: AppTheme.primaryGreen,
+                                ),
+                              ],
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                // 시작 지점
+                                Marker(
+                                  point: LatLng(
+                                    walk.routePoints.first.latitude,
+                                    walk.routePoints.first.longitude,
+                                  ),
+                                  width: 30,
+                                  height: 30,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.green,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                    child: const Icon(Icons.play_arrow, color: Colors.white, size: 16),
+                                  ),
+                                ),
+                                // 종료 지점
+                                if (walk.routePoints.length > 1)
+                                  Marker(
+                                    point: LatLng(
+                                      walk.routePoints.last.latitude,
+                                      walk.routePoints.last.longitude,
+                                    ),
+                                    width: 30,
+                                    height: 30,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.white, width: 2),
+                                      ),
+                                      child: const Icon(Icons.stop, color: Colors.white, size: 16),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.route,
+                              size: 48,
+                              color: AppTheme.textBody.withValues(alpha: 0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '경로 정보가 없습니다',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppTheme.textBody,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
+            ),
 
             const SizedBox(height: 20),
 

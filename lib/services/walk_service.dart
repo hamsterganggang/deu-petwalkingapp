@@ -30,9 +30,10 @@ class FirebaseWalkService implements WalkService {
       final walks = snapshot.docs
           .map((doc) {
             final data = doc.data();
-            // walkId는 document ID와 일치해야 함
-            // 만약 데이터에 walkId가 있으면 사용하고, 없으면 document ID 사용
-            final walkId = data['walkId'] as String? ?? doc.id;
+            // walkId는 document ID를 우선 사용
+            // 기존 데이터 호환성을 위해 데이터에 walkId가 있고 document ID와 다르면 경고
+            final walkId = doc.id; // document ID를 walkId로 사용
+            
             return WalkModel.fromJson({
               'walkId': walkId,
               ...Map<String, dynamic>.from(data),
@@ -84,11 +85,49 @@ class FirebaseWalkService implements WalkService {
       // walkId는 document ID이므로 JSON에서 제거
       walkData.remove('walkId');
       
-      // document 존재 여부 확인
-      final docRef = _firestore.collection('walks').doc(walk.walkId);
-      final docSnapshot = await docRef.get();
+      // document 존재 여부 확인 (먼저 walkId를 document ID로 시도)
+      DocumentReference? docRef = _firestore.collection('walks').doc(walk.walkId);
+      DocumentSnapshot? docSnapshot = await docRef.get();
       
+      // walkId가 document ID와 일치하지 않는 경우, walkId 필드로 찾기
       if (!docSnapshot.exists) {
+        final querySnapshot = await _firestore
+            .collection('walks')
+            .where('userId', isEqualTo: walk.userId)
+            .where('walkId', isEqualTo: walk.walkId)
+            .limit(1)
+            .get();
+        
+        if (querySnapshot.docs.isEmpty) {
+          // walkId 필드가 없는 경우, document ID로 다시 시도
+          final allWalks = await _firestore
+              .collection('walks')
+              .where('userId', isEqualTo: walk.userId)
+              .get();
+          
+          // walkId 필드나 document ID로 찾기
+          DocumentSnapshot? foundDoc;
+          for (var doc in allWalks.docs) {
+            final data = doc.data();
+            final docWalkId = data['walkId'] as String? ?? doc.id;
+            if (docWalkId == walk.walkId) {
+              foundDoc = doc;
+              docRef = doc.reference;
+              break;
+            }
+          }
+          
+          if (foundDoc == null || !foundDoc.exists) {
+            throw Exception('산책 기록을 찾을 수 없습니다: ${walk.walkId}');
+          }
+          docSnapshot = foundDoc;
+        } else {
+          docRef = querySnapshot.docs.first.reference;
+          docSnapshot = querySnapshot.docs.first;
+        }
+      }
+      
+      if (docRef == null || !docSnapshot.exists) {
         throw Exception('산책 기록을 찾을 수 없습니다: ${walk.walkId}');
       }
       
@@ -108,12 +147,55 @@ class FirebaseWalkService implements WalkService {
     try {
       ErrorLogger.logSuccess('산책 삭제 시작: $walkId');
       
-      // document 존재 여부 확인
-      final docRef = _firestore.collection('walks').doc(walkId);
-      final docSnapshot = await docRef.get();
+      // document 존재 여부 확인 (먼저 walkId를 document ID로 시도)
+      DocumentReference? docRef = _firestore.collection('walks').doc(walkId);
+      DocumentSnapshot? docSnapshot = await docRef.get();
       
+      // walkId가 document ID와 일치하지 않는 경우, walkId 필드로 찾기
       if (!docSnapshot.exists) {
+        // walkId 필드로 직접 검색
+        final querySnapshot = await _firestore
+            .collection('walks')
+            .where('walkId', isEqualTo: walkId)
+            .limit(1)
+            .get();
+        
+        if (querySnapshot.docs.isNotEmpty) {
+          docRef = querySnapshot.docs.first.reference;
+          docSnapshot = querySnapshot.docs.first;
+        } else {
+          // walkId 필드가 없는 경우, 모든 walks를 검색하여 document ID나 walkId 필드로 찾기
+          // 이 방법은 비효율적이지만, 기존 데이터 호환성을 위해 필요
+          final allWalks = await _firestore
+              .collection('walks')
+              .get();
+          
+          DocumentSnapshot? foundDoc;
+          for (var doc in allWalks.docs) {
+            final data = doc.data();
+            final docWalkId = data['walkId'] as String? ?? doc.id;
+            if (docWalkId == walkId) {
+              foundDoc = doc;
+              docRef = doc.reference;
+              break;
+            }
+          }
+          
+          if (foundDoc == null || !foundDoc.exists) {
+            throw Exception('산책 기록을 찾을 수 없습니다: $walkId');
+          }
+          docSnapshot = foundDoc;
+        }
+      }
+      
+      if (docRef == null || !docSnapshot.exists) {
         throw Exception('산책 기록을 찾을 수 없습니다: $walkId');
+      }
+      
+      // userId 확인 (권한 체크)
+      final data = docSnapshot.data() as Map<String, dynamic>?;
+      if (data == null) {
+        throw Exception('산책 기록 데이터를 읽을 수 없습니다: $walkId');
       }
       
       // 관련된 좋아요도 삭제
@@ -128,6 +210,12 @@ class FirebaseWalkService implements WalkService {
       }
       batch.delete(docRef);
       await batch.commit();
+      
+      // 삭제 확인
+      final deletedDocSnapshot = await docRef.get();
+      if (deletedDocSnapshot.exists) {
+        throw Exception('산책 삭제에 실패했습니다: $walkId (문서가 여전히 존재합니다)');
+      }
       
       ErrorLogger.logSuccess('산책 삭제 완료: $walkId (좋아요 ${likesSnapshot.docs.length}개도 삭제)');
     } catch (e, stackTrace) {
@@ -164,9 +252,9 @@ class FirebaseWalkService implements WalkService {
             }
             // 명시적으로 Map으로 변환
             final dataMap = data as Map<String, dynamic>;
-            // walkId는 document ID와 일치해야 함
-            // 만약 데이터에 walkId가 있으면 사용하고, 없으면 document ID 사용
-            final walkId = dataMap['walkId'] as String? ?? doc.id;
+            // walkId는 document ID를 우선 사용
+            final walkId = doc.id; // document ID를 walkId로 사용
+            
             final jsonData = <String, dynamic>{
               'walkId': walkId,
               ...dataMap,

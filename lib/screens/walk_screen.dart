@@ -140,12 +140,29 @@ class _WalkScreenState extends State<WalkScreen> {
     if (!mounted) return;
     
     // 반려동물 선택 다이얼로그 표시
-    final selectedPet = await showDialog<PetModel?>(
+    final result = await showDialog<dynamic>(
       context: context,
       builder: (context) => const PetSelectDialog(),
     );
     
     if (!mounted) return;
+
+    // '취소' 클릭 시 (null 반환) 산책 시작하지 않음
+    if (result == null) {
+      return;
+    }
+    
+    // '선택 안함' 클릭 시 (false 반환) 또는 반려동물 선택 시 (PetModel 반환)
+    PetModel? selectedPet;
+    if (result is PetModel) {
+      selectedPet = result;
+    } else if (result == false) {
+      // '선택 안함'을 선택한 경우 - petId 없이 산책 시작 가능
+      selectedPet = null;
+    } else {
+      // 예상치 못한 경우
+      return;
+    }
 
     // Get current location first
     await _getCurrentLocation();

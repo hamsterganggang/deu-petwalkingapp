@@ -146,12 +146,12 @@ class _WalkEndDialogState extends State<WalkEndDialog> {
               ),
               const SizedBox(height: 24),
               
-              // 메모 입력
+              // 메모 입력 (필수)
               TextField(
                 controller: _memoController,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  labelText: '메모 (선택사항)',
+                  labelText: '메모 *',
                   hintText: '오늘 산책에 대한 생각을 남겨보세요',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -178,10 +178,18 @@ class _WalkEndDialogState extends State<WalkEndDialog> {
                   const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: () {
+                      // 메모 필수 체크
+                      if (_memoController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('메모를 입력해주세요.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
                       Navigator.pop(context, {
-                        'memo': _memoController.text.isEmpty
-                            ? null
-                            : _memoController.text,
+                        'memo': _memoController.text.trim(),
                         'mood': _selectedMood,
                       });
                     },

@@ -8,6 +8,8 @@ import '../models/walk_model.dart';
 import '../models/user_model.dart';
 import '../services/user_service.dart';
 import 'user_search_screen.dart';
+import 'user_profile_screen.dart';
+import 'blocked_users_screen.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// Social Screen - Instagram-style feed
@@ -77,6 +79,18 @@ class _SocialScreenState extends State<SocialScreen> {
       appBar: AppBar(
         title: const Text('소셜'),
         actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BlockedUsersScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.block),
+            tooltip: '차단된 사용자',
+          ),
           IconButton(
             onPressed: () {
               Navigator.push(
@@ -170,28 +184,38 @@ class _SocialScreenState extends State<SocialScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            displayName,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                      Text(
-                        _formatDate(walk.date),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppTheme.textBody,
-                              fontSize: 11,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => UserProfileScreen(userId: walk.userId),
                             ),
+                          );
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            Text(
+                              _formatDate(walk.date),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.textBody,
+                                    fontSize: 11,
+                                  ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
 
           // Map Thumbnail
           Container(

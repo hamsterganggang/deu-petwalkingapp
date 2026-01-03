@@ -58,7 +58,7 @@ class PetSelectDialog extends StatelessWidget {
                         children: [
                           ...pets.map((pet) {
                             return _buildPetItem(context, pet);
-                          }).toList(),
+                          }),
                         ],
                       ),
                     ),
@@ -69,7 +69,7 @@ class PetSelectDialog extends StatelessWidget {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context, null),
+                          onPressed: () => Navigator.pop(context, false), // '선택 안함'은 false 반환
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.textBody,
                             side: const BorderSide(color: AppTheme.textBody, width: 1),
@@ -80,7 +80,7 @@ class PetSelectDialog extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () => Navigator.pop(context, null), // '취소'는 null 반환
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.red,
                             side: const BorderSide(color: Colors.red, width: 1),
