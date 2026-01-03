@@ -73,10 +73,20 @@ class PetProvider with ChangeNotifier {
       notifyListeners();
 
       _pets = await _petService.getPets(ownerId);
-      _primaryPet = _pets.firstWhere(
-        (pet) => pet.isPrimary,
-        orElse: () => _pets.isNotEmpty ? _pets.first : throw StateError('No pets'),
-      );
+      
+      // 대표 반려동물을 맨 앞으로 정렬
+      _pets.sort((a, b) {
+        if (a.isPrimary && !b.isPrimary) return -1;
+        if (!a.isPrimary && b.isPrimary) return 1;
+        return 0; // 둘 다 대표이거나 둘 다 대표가 아니면 순서 유지
+      });
+      
+      // 대표 반려동물 찾기
+      try {
+        _primaryPet = _pets.firstWhere((pet) => pet.isPrimary);
+      } catch (e) {
+        _primaryPet = _pets.isNotEmpty ? _pets.first : null;
+      }
 
       _isLoading = false;
       notifyListeners();
@@ -102,6 +112,13 @@ class PetProvider with ChangeNotifier {
       // (사용자가 명시적으로 대표로 설정한 경우는 화면에서 처리)
       if (_pets.length == 1 && !pet.isPrimary) {
         await setPrimaryPet(createdPet.petId, createdPet.ownerId);
+      } else {
+        // 대표 반려동물을 맨 앞으로 정렬
+        _pets.sort((a, b) {
+          if (a.isPrimary && !b.isPrimary) return -1;
+          if (!a.isPrimary && b.isPrimary) return 1;
+          return 0;
+        });
       }
 
       _isLoading = false;
@@ -135,6 +152,13 @@ class PetProvider with ChangeNotifier {
       } else if (_primaryPet?.petId == updatedPet.petId) {
         _primaryPet = null;
       }
+
+      // 대표 반려동물을 맨 앞으로 정렬
+      _pets.sort((a, b) {
+        if (a.isPrimary && !b.isPrimary) return -1;
+        if (!a.isPrimary && b.isPrimary) return 1;
+        return 0;
+      });
 
       _isLoading = false;
       notifyListeners();
@@ -194,6 +218,13 @@ class PetProvider with ChangeNotifier {
           isPrimary: pet.petId == petId,
         );
       }).toList();
+
+      // 대표 반려동물을 맨 앞으로 정렬
+      _pets.sort((a, b) {
+        if (a.isPrimary && !b.isPrimary) return -1;
+        if (!a.isPrimary && b.isPrimary) return 1;
+        return 0; // 둘 다 대표이거나 둘 다 대표가 아니면 순서 유지
+      });
 
       // 대표 펫 찾기
       try {
