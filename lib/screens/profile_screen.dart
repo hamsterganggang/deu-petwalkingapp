@@ -9,9 +9,9 @@ import '../providers/walk_provider.dart';
 import '../models/walk_model.dart';
 import '../services/storage_service.dart';
 import 'login_screen.dart';
-import 'nearby_users_screen.dart';
 import 'follow_list_screen.dart';
 import 'walk_detail_screen.dart';
+import 'main_screen.dart';
 
 /// Profile Screen
 class ProfileScreen extends StatefulWidget {
@@ -185,24 +185,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             PopupMenuButton(
               itemBuilder: (context) => [
-                    PopupMenuItem(
-                      child: const Text('주변 사용자'),
-                      onTap: () {
-                        final navigator = Navigator.of(context);
-                        Future.delayed(
-                          const Duration(milliseconds: 100),
-                          () {
-                            if (navigator.mounted) {
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (context) => const NearbyUsersScreen(),
-                                ),
-                              );
-                            }
-                          },
-                        );
-                      },
-                    ),
                     PopupMenuItem(
                       child: const Text('로그아웃'),
                       onTap: () {

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/walk_model.dart';
-import '../utils/confirm_dialog.dart'; // ErrorLogger를 위해 필요
+import '../utils/confirm_dialog.dart';
+import '../utils/retry_helper.dart';
+import '../services/network_service.dart'; // ErrorLogger를 위해 필요
 
 /// Walk Service Interface
 abstract class WalkService {
@@ -55,24 +57,35 @@ class FirebaseWalkService implements WalkService {
 
   @override
   Future<WalkModel> createWalk(WalkModel walk) async {
-    try {
-      ErrorLogger.logSuccess('산책 저장 시작: ${walk.userId}');
-      
-      // walkId를 Firestore document ID로 직접 사용하여 충돌 방지
-      final walkData = walk.toJson();
-      // walkId는 document ID로 사용하므로 JSON에서 제거
-      walkData.remove('walkId');
-      
-      // walkId를 document ID로 사용하여 저장
-      await _firestore.collection('walks').doc(walk.walkId).set(walkData);
-      
-      ErrorLogger.logSuccess('산책 저장 완료: ${walk.walkId}');
-      return walk;
-    } catch (e, stackTrace) {
-      ErrorLogger.logFirebaseError('산책 저장', e);
-      ErrorLogger.logError('createWalk', e, stackTrace);
-      throw Exception('산책 저장에 실패했습니다: $e');
+    // 네트워크 연결 확인
+    final networkService = NetworkService();
+    if (!await networkService.checkConnection()) {
+      throw Exception('네트워크에 연결되어 있지 않습니다. 인터넷 연결을 확인해주세요.');
     }
+
+    return await RetryHelper.retryWithBackoff<WalkModel>(
+      operation: () async {
+        try {
+          ErrorLogger.logSuccess('산책 저장 시작: ${walk.userId}');
+          
+          // walkId를 Firestore document ID로 직접 사용하여 충돌 방지
+          final walkData = walk.toJson();
+          // walkId는 document ID로 사용하므로 JSON에서 제거
+          walkData.remove('walkId');
+          
+          // walkId를 document ID로 사용하여 저장
+          await _firestore.collection('walks').doc(walk.walkId).set(walkData);
+          
+          ErrorLogger.logSuccess('산책 저장 완료: ${walk.walkId}');
+          return walk;
+        } catch (e, stackTrace) {
+          ErrorLogger.logFirebaseError('산책 저장', e);
+          ErrorLogger.logError('createWalk', e, stackTrace);
+          rethrow;
+        }
+      },
+      retryableErrors: RetryHelper.isRetryableError,
+    );
   }
 
   @override

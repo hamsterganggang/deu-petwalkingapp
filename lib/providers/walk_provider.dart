@@ -89,7 +89,20 @@ class WalkProvider with ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      _walks = await _walkService.getWalks(userId);
+      final walks = await _walkService.getWalks(userId);
+      
+      // 데이터 무결성 확인: 모든 산책 기록의 userId가 요청한 userId와 일치하는지 확인
+      final invalidWalks = walks.where((walk) => walk.userId != userId).toList();
+      if (invalidWalks.isNotEmpty) {
+        ErrorLogger.logError('loadWalks', 
+          Exception('산책 데이터 불일치: 요청한 userId=$userId, 불일치한 산책 수=${invalidWalks.length}'), 
+          StackTrace.current);
+        // 불일치한 데이터 제외
+        _walks = walks.where((walk) => walk.userId == userId).toList();
+      } else {
+        _walks = walks;
+      }
+      
       _walks.sort((a, b) => b.date.compareTo(a.date));
 
       _isLoading = false;
@@ -98,6 +111,7 @@ class WalkProvider with ChangeNotifier {
       ErrorLogger.logError('loadWalks', e, stackTrace);
       _error = e.toString();
       _isLoading = false;
+      _walks = []; // 오류 시 산책 목록 초기화
       notifyListeners();
     }
   }

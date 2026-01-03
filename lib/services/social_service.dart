@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../utils/confirm_dialog.dart';
+import '../utils/retry_helper.dart';
+import '../services/network_service.dart';
 
 /// Social Service Interface
 abstract class SocialService {
@@ -154,25 +156,39 @@ class FirebaseSocialService implements SocialService {
 
   Future<void> _updateFollowCount(
       String followerId, String followingId, int delta) async {
-    final batch = _firestore.batch();
-
-    // 팔로워의 followingCount 업데이트
-    final followerRef = _firestore.collection('users').doc(followerId);
-    final followerDoc = await followerRef.get();
-    if (followerDoc.exists) {
-      final currentCount = followerDoc.data()?['followingCount'] ?? 0;
-      batch.update(followerRef, {'followingCount': currentCount + delta});
+    // 네트워크 연결 확인
+    final networkService = NetworkService();
+    if (!await networkService.checkConnection()) {
+      throw Exception('네트워크에 연결되어 있지 않습니다. 인터넷 연결을 확인해주세요.');
     }
 
-    // 팔로우 당하는 사람의 followerCount 업데이트
-    final followingRef = _firestore.collection('users').doc(followingId);
-    final followingDoc = await followingRef.get();
-    if (followingDoc.exists) {
-      final currentCount = followingDoc.data()?['followerCount'] ?? 0;
-      batch.update(followingRef, {'followerCount': currentCount + delta});
-    }
+    await RetryHelper.retryWithBackoff<void>(
+      operation: () async {
+        // 트랜잭션을 사용하여 팔로워 수 업데이트를 원자적으로 처리
+        await _firestore.runTransaction((transaction) async {
+          // 팔로워의 followingCount 업데이트
+          final followerRef = _firestore.collection('users').doc(followerId);
+          final followerDoc = await transaction.get(followerRef);
+          if (followerDoc.exists) {
+            final data = followerDoc.data();
+            final currentCount = (data?['followingCount'] as num?)?.toInt() ?? 0;
+            final newCount = (currentCount + delta).clamp(0, double.infinity).toInt();
+            transaction.update(followerRef, {'followingCount': newCount});
+          }
 
-    await batch.commit();
+          // 팔로우 당하는 사람의 followerCount 업데이트
+          final followingRef = _firestore.collection('users').doc(followingId);
+          final followingDoc = await transaction.get(followingRef);
+          if (followingDoc.exists) {
+            final data = followingDoc.data();
+            final currentCount = (data?['followerCount'] as num?)?.toInt() ?? 0;
+            final newCount = (currentCount + delta).clamp(0, double.infinity).toInt();
+            transaction.update(followingRef, {'followerCount': newCount});
+          }
+        });
+      },
+      retryableErrors: RetryHelper.isRetryableError,
+    );
   }
 
   @override

@@ -11,6 +11,7 @@ import 'user_search_screen.dart';
 import 'user_profile_screen.dart';
 import 'blocked_users_screen.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:geolocator/geolocator.dart';
 
 /// Social Screen - Instagram-style feed
 class SocialScreen extends StatefulWidget {
@@ -20,13 +21,83 @@ class SocialScreen extends StatefulWidget {
   State<SocialScreen> createState() => _SocialScreenState();
 }
 
-class _SocialScreenState extends State<SocialScreen> {
+class _SocialScreenState extends State<SocialScreen> with SingleTickerProviderStateMixin {
+  Position? _currentPosition;
+  bool _isLoadingNearby = false;
+  late TabController _tabController;
+  int _currentTabIndex = 0;
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      setState(() {
+        _currentTabIndex = _tabController.index;
+      });
+      if (_tabController.index == 1 && _currentPosition == null) {
+        _loadNearbyUsers();
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadPublicWalks();
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      setState(() {
+        _currentPosition = position;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('위치를 가져올 수 없습니다: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadNearbyUsers() async {
+    if (_currentPosition == null) {
+      await _getCurrentLocation();
+    }
+    
+    if (_currentPosition == null) return;
+
+    setState(() {
+      _isLoadingNearby = true;
+    });
+
+    try {
+      final socialProvider = Provider.of<SocialProvider>(context, listen: false);
+      await socialProvider.getNearbyUsers(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+        1.0, // 1km 반경
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('주변 사용자를 불러오는데 실패했습니다: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingNearby = false;
+        });
+      }
+    }
   }
 
   void _loadPublicWalks() {
@@ -78,33 +149,61 @@ class _SocialScreenState extends State<SocialScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('소셜'),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: AppTheme.primaryGreen,
+          unselectedLabelColor: AppTheme.textBody,
+          indicatorColor: AppTheme.primaryGreen,
+          tabs: const [
+            Tab(text: '피드'),
+            Tab(text: '주변 사용자'),
+          ],
+        ),
         actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const BlockedUsersScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.block),
-            tooltip: '차단된 사용자',
-          ),
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const UserSearchScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.search),
-          ),
+          if (_currentTabIndex == 0) ...[
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const BlockedUsersScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.block),
+              tooltip: '차단된 사용자',
+            ),
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const UserSearchScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.search),
+            ),
+          ] else if (_currentTabIndex == 1) ...[
+            IconButton(
+              onPressed: _loadNearbyUsers,
+              icon: _isLoadingNearby
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              tooltip: '새로고침',
+            ),
+          ],
         ],
       ),
-      body: Consumer<WalkProvider>(
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // 피드 탭
+          Consumer<WalkProvider>(
         builder: (context, walkProvider, _) {
           // 공개된 산책만 필터링
           final publicWalks = walkProvider.walks
@@ -139,6 +238,142 @@ class _SocialScreenState extends State<SocialScreen> {
             itemBuilder: (context, index) {
               return _buildWalkCard(publicWalks[index]);
             },
+          );
+        },
+      ),
+          // 주변 사용자 탭
+          _buildNearbyUsersTab(),
+        ],
+      ),
+    );
+  }
+
+  /// Build Nearby Users Tab
+  Widget _buildNearbyUsersTab() {
+    return Consumer<SocialProvider>(
+      builder: (context, socialProvider, _) {
+        if (_isLoadingNearby) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final nearbyUsers = socialProvider.nearbyUsers;
+
+        if (nearbyUsers.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.explore_outlined,
+                  size: 64,
+                  color: AppTheme.textBody.withValues(alpha: 0.5),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '반경 1km 내에 산책 중인 사용자가 없습니다',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppTheme.textBody,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: _loadNearbyUsers,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('새로고침'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: nearbyUsers.length,
+          itemBuilder: (context, index) {
+            return _buildNearbyUserCard(nearbyUsers[index]);
+          },
+        );
+      },
+    );
+  }
+
+  /// Build Nearby User Card
+  Widget _buildNearbyUserCard(UserModel user) {
+    return Card(
+      elevation: AppTheme.cardElevation,
+      shadowColor: AppTheme.cardShadowColor,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: CircleAvatar(
+          radius: 30,
+          backgroundColor: AppTheme.secondaryMint,
+          backgroundImage: user.photoUrl != null
+              ? NetworkImage(user.photoUrl!)
+              : null,
+          child: user.photoUrl == null
+              ? Icon(
+                  Icons.person,
+                  color: AppTheme.primaryGreen,
+                  size: 30,
+                )
+              : null,
+        ),
+        title: Text(
+          user.nickname ?? '닉네임 없음',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (user.intro != null && user.intro!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(user.intro!),
+            ],
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  Icons.location_on,
+                  size: 14,
+                  color: AppTheme.primaryGreen,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '산책 중',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.primaryGreen,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        trailing: IconButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => UserProfileScreen(userId: user.uid),
+              ),
+            );
+          },
+          icon: const Icon(Icons.chevron_right),
+          color: AppTheme.textBody,
+        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => UserProfileScreen(userId: user.uid),
+            ),
           );
         },
       ),

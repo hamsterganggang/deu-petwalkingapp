@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/pet_model.dart';
 import '../utils/confirm_dialog.dart';
+import '../utils/retry_helper.dart';
+import '../services/network_service.dart';
 
 /// Pet Service Interface
 abstract class PetService {
@@ -45,30 +47,41 @@ class FirebasePetService implements PetService {
 
   @override
   Future<PetModel> createPet(PetModel pet) async {
-    try {
-      ErrorLogger.logSuccess('펫 등록 시작: ${pet.name}');
-      
-      // petId가 비어있거나 임시 ID인 경우 새로운 ID 생성
-      String finalPetId = pet.petId;
-      if (finalPetId.isEmpty || finalPetId.startsWith('pet_')) {
-        // Firestore가 자동 생성한 ID 사용
-        final docRef = await _firestore.collection('pets').add(pet.toJson());
-        finalPetId = docRef.id;
-      } else {
-        // petId를 document ID로 직접 사용
-        final petData = pet.toJson();
-        petData.remove('petId'); // petId는 document ID이므로 JSON에서 제거
-        await _firestore.collection('pets').doc(finalPetId).set(petData);
-      }
-      
-      final createdPet = pet.copyWith(petId: finalPetId);
-      ErrorLogger.logSuccess('펫 등록 완료: ${createdPet.petId}');
-      return createdPet;
-    } catch (e, stackTrace) {
-      ErrorLogger.logFirebaseError('펫 등록', e);
-      ErrorLogger.logError('createPet', e, stackTrace);
-      throw Exception('펫 등록에 실패했습니다: $e');
+    // 네트워크 연결 확인
+    final networkService = NetworkService();
+    if (!await networkService.checkConnection()) {
+      throw Exception('네트워크에 연결되어 있지 않습니다. 인터넷 연결을 확인해주세요.');
     }
+
+    return await RetryHelper.retryWithBackoff<PetModel>(
+      operation: () async {
+        try {
+          ErrorLogger.logSuccess('펫 등록 시작: ${pet.name}');
+          
+          // petId가 비어있거나 임시 ID인 경우 새로운 ID 생성
+          String finalPetId = pet.petId;
+          if (finalPetId.isEmpty || finalPetId.startsWith('pet_')) {
+            // Firestore가 자동 생성한 ID 사용
+            final docRef = await _firestore.collection('pets').add(pet.toJson());
+            finalPetId = docRef.id;
+          } else {
+            // petId를 document ID로 직접 사용
+            final petData = pet.toJson();
+            petData.remove('petId'); // petId는 document ID이므로 JSON에서 제거
+            await _firestore.collection('pets').doc(finalPetId).set(petData);
+          }
+          
+          final createdPet = pet.copyWith(petId: finalPetId);
+          ErrorLogger.logSuccess('펫 등록 완료: ${createdPet.petId}');
+          return createdPet;
+        } catch (e, stackTrace) {
+          ErrorLogger.logFirebaseError('펫 등록', e);
+          ErrorLogger.logError('createPet', e, stackTrace);
+          rethrow;
+        }
+      },
+      retryableErrors: RetryHelper.isRetryableError,
+    );
   }
 
   @override
@@ -130,41 +143,52 @@ class FirebasePetService implements PetService {
 
   @override
   Future<void> setPrimaryPet(String petId, String ownerId) async {
-    try {
-      // 모든 펫의 isPrimary를 false로 설정
-      final snapshot = await _firestore
-          .collection('pets')
-          .where('ownerId', isEqualTo: ownerId)
-          .get();
-
-      // 빈 리스트 체크
-      if (snapshot.docs.isEmpty) {
-        throw Exception('펫 목록이 비어있습니다.');
-      }
-
-      // petId와 일치하는 문서 찾기
-      final targetDoc = snapshot.docs.firstWhere(
-        (doc) => doc.id == petId,
-        orElse: () => throw Exception('펫을 찾을 수 없습니다: $petId'),
-      );
-
-      final batch = _firestore.batch();
-      
-      // 모든 펫의 isPrimary를 false로 설정
-      for (var doc in snapshot.docs) {
-        batch.update(doc.reference, {'isPrimary': false});
-      }
-      
-      // 선택한 펫을 대표로 설정
-      batch.update(targetDoc.reference, {'isPrimary': true});
-      
-      await batch.commit();
-      ErrorLogger.logSuccess('대표 펫 설정 완료: $petId');
-    } catch (e, stackTrace) {
-      ErrorLogger.logFirebaseError('대표 펫 설정', e);
-      ErrorLogger.logError('setPrimaryPet', e, stackTrace);
-      throw Exception('대표 펫 설정에 실패했습니다: $e');
+    // 네트워크 연결 확인
+    final networkService = NetworkService();
+    if (!await networkService.checkConnection()) {
+      throw Exception('네트워크에 연결되어 있지 않습니다. 인터넷 연결을 확인해주세요.');
     }
+
+    return await RetryHelper.retryWithBackoff<void>(
+      operation: () async {
+        try {
+          // 트랜잭션을 사용하여 원자적으로 처리
+          await _firestore.runTransaction((transaction) async {
+            // 모든 펫의 isPrimary를 false로 설정
+            final snapshot = await _firestore
+                .collection('pets')
+                .where('ownerId', isEqualTo: ownerId)
+                .get();
+
+            // 빈 리스트 체크
+            if (snapshot.docs.isEmpty) {
+              throw Exception('펫 목록이 비어있습니다.');
+            }
+
+            // petId와 일치하는 문서 찾기
+            final targetDoc = snapshot.docs.firstWhere(
+              (doc) => doc.id == petId,
+              orElse: () => throw Exception('펫을 찾을 수 없습니다: $petId'),
+            );
+
+            // 모든 펫의 isPrimary를 false로 설정
+            for (var doc in snapshot.docs) {
+              transaction.update(doc.reference, {'isPrimary': false});
+            }
+            
+            // 선택한 펫을 대표로 설정
+            transaction.update(targetDoc.reference, {'isPrimary': true});
+          });
+          
+          ErrorLogger.logSuccess('대표 펫 설정 완료: $petId');
+        } catch (e, stackTrace) {
+          ErrorLogger.logFirebaseError('대표 펫 설정', e);
+          ErrorLogger.logError('setPrimaryPet', e, stackTrace);
+          rethrow;
+        }
+      },
+      retryableErrors: RetryHelper.isRetryableError,
+    );
   }
 }
 

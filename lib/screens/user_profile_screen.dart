@@ -39,6 +39,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final user = await userService.getUserInfo(widget.userId);
       
       if (mounted) {
+        // 데이터 무결성 확인: 가져온 사용자의 UID가 요청한 userId와 일치하는지 확인
+        if (user != null && user.uid != widget.userId) {
+          throw Exception('사용자 데이터 불일치: 요청한 UID=${widget.userId}, 반환된 UID=${user.uid}');
+        }
+        
         setState(() {
           _user = user;
           _isLoading = false;
@@ -54,6 +59,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _user = null; // 오류 시 사용자 정보 초기화
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -20,18 +20,55 @@ class FirebaseAuthService implements AuthService {
   Future<app_models.User?> signInWithEmail(
       String email, String password) async {
     try {
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
-      
-      // credential.user가 null일 수 있으므로 체크
-      if (credential.user == null) {
-        throw Exception('사용자 정보를 가져올 수 없습니다.');
+      // 이메일 정리
+      final trimmedEmail = email.trim();
+      if (trimmedEmail.isEmpty) {
+        throw Exception('이메일을 입력해주세요.');
       }
       
-      final user = _userFromFirebase(credential.user);
-      ErrorLogger.logSuccess('로그인 성공: ${user?.email}');
+      // Firebase Auth 호출
+      UserCredential? credential;
+      try {
+        credential = await _auth.signInWithEmailAndPassword(
+          email: trimmedEmail,
+          password: password,
+        );
+      } catch (e) {
+        // 타입 캐스팅 에러가 발생할 수 있으므로 재시도
+        if (e.toString().contains('PigeonUserDetails') || 
+            e.toString().contains('type cast')) {
+          // 잠시 대기 후 재시도
+          await Future.delayed(const Duration(milliseconds: 500));
+          credential = await _auth.signInWithEmailAndPassword(
+            email: trimmedEmail,
+            password: password,
+          );
+        } else {
+          rethrow;
+        }
+      }
+      
+      // credential이 null인 경우
+      if (credential == null) {
+        throw Exception('로그인 응답을 받을 수 없습니다.');
+      }
+      
+      // credential.user가 null인 경우, 현재 사용자 확인
+      User? firebaseUser = credential.user;
+      if (firebaseUser == null) {
+        // credential.user가 null이면 현재 인증된 사용자 확인
+        firebaseUser = _auth.currentUser;
+        if (firebaseUser == null) {
+          throw Exception('사용자 정보를 가져올 수 없습니다.');
+        }
+      }
+      
+      final user = _userFromFirebase(firebaseUser);
+      if (user == null) {
+        throw Exception('사용자 정보 변환에 실패했습니다.');
+      }
+      
+      ErrorLogger.logSuccess('로그인 성공: ${user.email}');
       return user;
     } on FirebaseAuthException catch (e) {
       ErrorLogger.logFirebaseError('로그인', e);
@@ -62,6 +99,22 @@ class FirebaseAuthService implements AuthService {
     } catch (e, stackTrace) {
       ErrorLogger.logFirebaseError('로그인', e);
       ErrorLogger.logError('signInWithEmail', e, stackTrace);
+      
+      // 타입 캐스팅 에러인 경우 특별 처리
+      if (e.toString().contains('PigeonUserDetails') || 
+          e.toString().contains('type cast')) {
+        // 현재 사용자로 로그인 시도
+        final currentUser = _auth.currentUser;
+        if (currentUser != null) {
+          final user = _userFromFirebase(currentUser);
+          if (user != null) {
+            ErrorLogger.logSuccess('로그인 성공 (현재 사용자): ${user.email}');
+            return user;
+          }
+        }
+        throw Exception('로그인 처리 중 오류가 발생했습니다. 앱을 재시작해주세요.');
+      }
+      
       throw Exception('로그인에 실패했습니다: ${e.toString()}');
     }
   }
