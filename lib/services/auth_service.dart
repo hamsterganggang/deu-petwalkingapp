@@ -123,8 +123,20 @@ class FirebaseAuthService implements AuthService {
   Future<app_models.User?> signUpWithEmail(
       String email, String password) async {
     try {
+      // 이메일 정리 및 기본 검증
+      final trimmedEmail = email.trim();
+      if (trimmedEmail.isEmpty) {
+        throw Exception('이메일을 입력해주세요.');
+      }
+      
+      // 이메일 형식 기본 검증 (Firebase Auth가 최종 검증하지만, 미리 체크)
+      if (!trimmedEmail.contains('@') || !trimmedEmail.contains('.')) {
+        throw Exception('올바른 이메일 형식이 아닙니다.');
+      }
+      
+      // Firebase Auth 호출
       final credential = await _auth.createUserWithEmailAndPassword(
-        email: email.trim(),
+        email: trimmedEmail,
         password: password,
       );
       
@@ -134,14 +146,18 @@ class FirebaseAuthService implements AuthService {
       }
       
       final user = _userFromFirebase(credential.user);
-      ErrorLogger.logSuccess('회원가입 성공: ${user?.email}');
+      if (user == null) {
+        throw Exception('사용자 정보 변환에 실패했습니다.');
+      }
+      
+      ErrorLogger.logSuccess('회원가입 성공: ${user.email}');
       return user;
     } on FirebaseAuthException catch (e) {
       ErrorLogger.logFirebaseError('회원가입', e);
       String errorMessage = '회원가입에 실패했습니다.';
       switch (e.code) {
         case 'weak-password':
-          errorMessage = '비밀번호가 너무 약합니다.';
+          errorMessage = '비밀번호가 너무 약합니다. (최소 6자 이상)';
           break;
         case 'email-already-in-use':
           errorMessage = '이미 사용 중인 이메일입니다.';
@@ -152,14 +168,25 @@ class FirebaseAuthService implements AuthService {
         case 'operation-not-allowed':
           errorMessage = '이메일/비밀번호 회원가입이 허용되지 않습니다.';
           break;
+        case 'network-request-failed':
+          errorMessage = '네트워크 연결을 확인해주세요.';
+          break;
         default:
-          errorMessage = '회원가입에 실패했습니다: ${e.message ?? e.code}';
+          // Firebase Auth의 실제 에러 메시지 사용
+          errorMessage = e.message ?? '회원가입에 실패했습니다: ${e.code}';
       }
       throw Exception(errorMessage);
     } catch (e, stackTrace) {
       ErrorLogger.logFirebaseError('회원가입', e);
       ErrorLogger.logError('signUpWithEmail', e, stackTrace);
-      throw Exception('회원가입에 실패했습니다: ${e.toString()}');
+      
+      // 에러 메시지 정리
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      
+      throw Exception(errorMessage);
     }
   }
 

@@ -12,7 +12,7 @@ class Validators {
       return '이메일을 입력해주세요';
     }
     
-    // 기본 이메일 형식 검증
+    // 기본 이메일 형식 검증 (더 관대한 검증)
     final emailRegex = RegExp(
       r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
     );
@@ -26,9 +26,25 @@ class Validators {
       return '이메일은 254자 이하여야 합니다';
     }
     
+    // @ 기호가 정확히 하나인지 확인
+    final atCount = '@'.allMatches(trimmedValue).length;
+    if (atCount != 1) {
+      return '이메일 형식이 올바르지 않습니다';
+    }
+    
+    // @ 앞뒤로 내용이 있는지 확인
+    final parts = trimmedValue.split('@');
+    if (parts.length != 2 || parts[0].isEmpty || parts[1].isEmpty) {
+      return '이메일 형식이 올바르지 않습니다';
+    }
+    
+    // 도메인 부분에 점(.)이 있는지 확인
+    if (!parts[1].contains('.')) {
+      return '이메일 형식이 올바르지 않습니다';
+    }
+    
     // 로컬 파트 길이 제한 (RFC 5321)
-    final localPart = trimmedValue.split('@')[0];
-    if (localPart.length > 64) {
+    if (parts[0].length > 64) {
       return '이메일 주소가 너무 깁니다';
     }
     
@@ -38,7 +54,12 @@ class Validators {
     }
     
     // 시작/끝 문자 검증
-    if (trimmedValue.startsWith('.') || trimmedValue.startsWith('@')) {
+    if (trimmedValue.startsWith('.') || 
+        trimmedValue.startsWith('@') ||
+        trimmedValue.startsWith('+') ||
+        trimmedValue.startsWith('-') ||
+        trimmedValue.endsWith('.') ||
+        trimmedValue.endsWith('@')) {
       return '이메일 형식이 올바르지 않습니다';
     }
     

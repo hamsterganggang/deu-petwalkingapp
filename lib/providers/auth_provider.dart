@@ -209,8 +209,16 @@ class AuthProvider with ChangeNotifier {
       return _user != null;
     } catch (e, stackTrace) {
       ErrorLogger.logError('signUp', e, stackTrace);
-      _error = e.toString();
+      
+      // 에러 메시지에서 "Exception: " 접두사 제거
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      
+      _error = errorMessage;
       _isLoading = false;
+      _user = null; // 오류 시 사용자 정보 초기화
       notifyListeners();
       return false;
     }
